@@ -16,6 +16,7 @@ import {
   Activity,
   CalendarDays,
   Hash,
+  Hand,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -133,13 +134,23 @@ export default function Dashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Link to="/add-jap">
+            <Link to="/tap-counter">
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold gap-2 shadow-lg shadow-amber-500/20"
               >
-                <PlusCircle className="h-5 w-5" />
-                <span>Add Today's Jap</span>
+                <Hand className="h-5 w-5" />
+                <span>डिजिटल माला (Live Tap)</span>
+              </Button>
+            </Link>
+            <Link to="/add-jap">
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-white font-semibold gap-2"
+              >
+                <PlusCircle className="h-5 w-5 text-amber-400" />
+                <span>Add Jap Manually</span>
               </Button>
             </Link>
             <Link to="/analytics">

@@ -19,6 +19,7 @@ import {
   Sparkles,
   Heart,
   ShieldCheck,
+  Hand,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -40,6 +41,12 @@ const sidebarItems: SidebarItem[] = [
     hindiLabel: "मुख्य पृष्ठ",
     icon: LayoutDashboard,
     path: "/dashboard",
+  },
+  {
+    label: "Tap Counter",
+    hindiLabel: "डिजिटल माला (Tap)",
+    icon: Hand,
+    path: "/tap-counter",
   },
   {
     label: "Add Jap",

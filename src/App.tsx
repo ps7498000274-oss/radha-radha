@@ -21,6 +21,7 @@ import Analytics from './pages/Analytics'
 import History from './pages/History'
 import Settings from './pages/Settings'
 import Profile from './pages/Profile'
+import TapCounter from './pages/TapCounter'
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/tap-counter" element={<TapCounter />} />
           <Route path="/add-jap" element={<DailyEntry />} />
           <Route path="/progress" element={<Progress />} />
           <Route path="/targets" element={<Progress />} />
