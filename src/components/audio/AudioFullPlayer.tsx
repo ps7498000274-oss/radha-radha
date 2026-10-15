@@ -63,7 +63,7 @@ export function AudioFullPlayer({ className }: { className?: string }) {
           राधे राधे
         </h3>
         <p className="mt-1 text-sm font-medium text-muted-foreground">
-          Continuous Sacred Devotional Audio Meditation
+          अखंड श्री राधा नाम जप (11,000 Times) — Continuous Devotional Meditation
         </p>
       </div>
 

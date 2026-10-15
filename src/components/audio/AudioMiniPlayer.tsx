@@ -27,7 +27,7 @@ export function AudioMiniPlayer() {
   const volume = audioContext?.volume ?? 0.75
   const currentTime = audioContext?.currentTime ?? 0
   const duration = audioContext?.duration ?? 0
-  const trackTitle = "श्री राधा नाम जप — Divine Naam Jap"
+  const trackTitle = "अखंड श्री राधा नाम जप (11,000 Times)"
   const hasTrack = !audioContext?.hasError
 
   const handleTogglePlay = () => {

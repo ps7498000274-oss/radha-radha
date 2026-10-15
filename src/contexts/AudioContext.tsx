@@ -1,6 +1,7 @@
 /**
  * Radha Radha — Naam Jap Tracker
- * AudioContext — Global persistent audio player for sacred Radha Naam chanting
+ * AudioContext — Global persistent audio player with seamless YouTube IFrame API integration
+ * Plays the sacred 11,000 Radha Naam Jap track reliably without needing local MP3 files
  */
 
 import React, {
@@ -38,16 +39,23 @@ const STORAGE_KEYS = {
   LOOP: 'radha_radha_audio_loop',
 } as const
 
-const DEFAULT_AUDIO_URL = '/audio/radha-naam.mp3'
+// The 11,000 Radha Naam Jaap video ID (from https://youtu.be/0LhTJgJyfM4)
+const DEFAULT_YT_VIDEO_ID = '0LhTJgJyfM4'
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined)
+
+declare global {
+  interface Window {
+    YT: any
+    onYouTubeIframeAPIReady: (() => void) | undefined
+  }
+}
 
 export interface AudioProviderProps {
   children: React.ReactNode
 }
 
 export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
-  // Read persisted preferences from localStorage
   const [volume, setVolumeState] = useState<number>(() => {
     if (typeof window === 'undefined') return 0.8
     try {
@@ -59,7 +67,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         }
       }
     } catch {
-      // Ignore localStorage read errors
+      // Ignore
     }
     return 0.8
   })
@@ -90,111 +98,153 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const [currentTime, setCurrentTime] = useState<number>(0)
   const [autoplayBlocked, setAutoplayBlocked] = useState<boolean>(false)
 
-  // Single persistent HTMLAudioElement reference
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const playerRef = useRef<any>(null)
+  const timerRef = useRef<any>(null)
+  const containerId = 'yt-bg-devotional-player'
 
-  // Initialize Audio instance once on mount
+  // Load YouTube IFrame API script
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const audioUrl = import.meta.env.VITE_AUDIO_URL || DEFAULT_AUDIO_URL
-    const audio = new Audio(audioUrl)
-
-    audio.loop = isLooping
-    audio.volume = volume
-    audio.muted = isMuted
-    audio.preload = 'metadata'
-
-    const handleLoadedMetadata = () => {
-      if (isFinite(audio.duration)) {
-        setDuration(audio.duration)
+    const loadAPI = () => {
+      if (window.YT && window.YT.Player) {
+        initPlayer()
+        return
       }
-      setIsLoaded(true)
-      setHasError(false)
-    }
 
-    const handleCanPlay = () => {
-      setIsLoaded(true)
-      setHasError(false)
-    }
+      if (!document.getElementById('youtube-iframe-api')) {
+        const tag = document.createElement('script')
+        tag.id = 'youtube-iframe-api'
+        tag.src = 'https://www.youtube.com/iframe_api'
+        const firstScriptTag = document.getElementsByTagName('script')[0]
+        firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag)
+      }
 
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime)
-    }
-
-    const handleDurationChange = () => {
-      if (isFinite(audio.duration)) {
-        setDuration(audio.duration)
+      window.onYouTubeIframeAPIReady = () => {
+        initPlayer()
       }
     }
 
-    const handlePlay = () => {
-      setIsPlaying(true)
-      setAutoplayBlocked(false)
-    }
+    const initPlayer = () => {
+      if (!window.YT || !window.YT.Player || playerRef.current) return
 
-    const handlePause = () => {
-      setIsPlaying(false)
-    }
-
-    const handleEnded = () => {
-      if (!audio.loop) {
-        setIsPlaying(false)
+      try {
+        playerRef.current = new window.YT.Player(containerId, {
+          height: '1',
+          width: '1',
+          videoId: DEFAULT_YT_VIDEO_ID,
+          playerVars: {
+            autoplay: 0,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            loop: isLooping ? 1 : 0,
+            playlist: DEFAULT_YT_VIDEO_ID,
+            modestbranding: 1,
+            playsinline: 1,
+            rel: 0,
+          },
+          events: {
+            onReady: (event: any) => {
+              setIsLoaded(true)
+              setHasError(false)
+              try {
+                event.target.setVolume(Math.round(volume * 100))
+                if (isMuted) {
+                  event.target.mute()
+                } else {
+                  event.target.unMute()
+                }
+                const dur = event.target.getDuration()
+                if (dur && isFinite(dur)) {
+                  setDuration(dur)
+                }
+              } catch (e) {
+                console.warn('YT ready handler warn:', e)
+              }
+            },
+            onStateChange: (event: any) => {
+              // YT.PlayerState: PLAYING = 1, PAUSED = 2, ENDED = 0, BUFFERING = 3
+              if (event.data === 1) {
+                setIsPlaying(true)
+                setAutoplayBlocked(false)
+                startProgressTimer()
+              } else if (event.data === 2) {
+                setIsPlaying(false)
+                stopProgressTimer()
+              } else if (event.data === 0) {
+                stopProgressTimer()
+                if (isLooping && playerRef.current) {
+                  playerRef.current.seekTo(0, true)
+                  playerRef.current.playVideo()
+                } else {
+                  setIsPlaying(false)
+                }
+              }
+            },
+            onError: (err: any) => {
+              console.warn('YouTube Player error:', err)
+              setHasError(true)
+              setIsPlaying(false)
+              stopProgressTimer()
+            },
+          },
+        })
+      } catch (err) {
+        console.warn('Failed to init YT player:', err)
+        setHasError(true)
       }
     }
 
-    const handleError = () => {
-      console.warn('Audio playback error or file not found:', audio.src)
-      setHasError(true)
-      setIsPlaying(false)
-    }
-
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata)
-    audio.addEventListener('canplay', handleCanPlay)
-    audio.addEventListener('timeupdate', handleTimeUpdate)
-    audio.addEventListener('durationchange', handleDurationChange)
-    audio.addEventListener('play', handlePlay)
-    audio.addEventListener('pause', handlePause)
-    audio.addEventListener('ended', handleEnded)
-    audio.addEventListener('error', handleError)
-
-    audioRef.current = audio
+    loadAPI()
 
     return () => {
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
-      audio.removeEventListener('canplay', handleCanPlay)
-      audio.removeEventListener('timeupdate', handleTimeUpdate)
-      audio.removeEventListener('durationchange', handleDurationChange)
-      audio.removeEventListener('play', handlePlay)
-      audio.removeEventListener('pause', handlePause)
-      audio.removeEventListener('ended', handleEnded)
-      audio.removeEventListener('error', handleError)
-
-      audio.pause()
-      audio.src = ''
-      audioRef.current = null
+      stopProgressTimer()
+      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+        try {
+          playerRef.current.destroy()
+        } catch {
+          // ignore
+        }
+        playerRef.current = null
+      }
     }
-  }, []) // Singleton across entire app lifecycle
+  }, [])
+
+  const startProgressTimer = () => {
+    stopProgressTimer()
+    timerRef.current = setInterval(() => {
+      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+        try {
+          const curr = playerRef.current.getCurrentTime()
+          const dur = playerRef.current.getDuration()
+          if (curr !== undefined) setCurrentTime(curr)
+          if (dur && isFinite(dur)) setDuration(dur)
+        } catch {
+          // ignore
+        }
+      }
+    }, 500)
+  }
+
+  const stopProgressTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }
 
   /**
-   * Play audio with autoplay-block handling
+   * Play audio
    */
   const play = useCallback(async (): Promise<void> => {
-    const audio = audioRef.current
-    if (!audio) return
-
+    if (!playerRef.current || typeof playerRef.current.playVideo !== 'function') return
     try {
       setAutoplayBlocked(false)
-      setHasError(false)
-      await audio.play()
-      setIsPlaying(true)
+      playerRef.current.playVideo()
     } catch (err: any) {
-      if (err.name === 'NotAllowedError' || err.name === 'NotSupportedError') {
-        setAutoplayBlocked(true)
-      } else {
-        console.warn('Playback failure:', err)
-      }
-      setIsPlaying(false)
+      console.warn('YT play failed:', err)
+      setAutoplayBlocked(true)
     }
   }, [])
 
@@ -202,10 +252,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
    * Pause audio
    */
   const pause = useCallback((): void => {
-    const audio = audioRef.current
-    if (!audio) return
-    audio.pause()
-    setIsPlaying(false)
+    if (!playerRef.current || typeof playerRef.current.pauseVideo !== 'function') return
+    try {
+      playerRef.current.pauseVideo()
+      setIsPlaying(false)
+    } catch (err) {
+      console.warn('YT pause error:', err)
+    }
   }, [])
 
   /**
@@ -226,17 +279,16 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     const clamped = Math.max(0, Math.min(1, v))
     setVolumeState(clamped)
 
-    if (audioRef.current) {
-      audioRef.current.volume = clamped
-      // If user sets volume > 0 while muted, unmute
-      if (clamped > 0 && audioRef.current.muted) {
-        audioRef.current.muted = false
-        setIsMutedState(false)
-        try {
+    if (playerRef.current && typeof playerRef.current.setVolume === 'function') {
+      try {
+        playerRef.current.setVolume(Math.round(clamped * 100))
+        if (clamped > 0 && playerRef.current.isMuted && playerRef.current.isMuted()) {
+          playerRef.current.unMute()
+          setIsMutedState(false)
           localStorage.setItem(STORAGE_KEYS.MUTED, 'false')
-        } catch {
-          // ignore
         }
+      } catch {
+        // ignore
       }
     }
 
@@ -253,8 +305,16 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const toggleMute = useCallback((): void => {
     setIsMutedState((prevMuted) => {
       const nextMuted = !prevMuted
-      if (audioRef.current) {
-        audioRef.current.muted = nextMuted
+      if (playerRef.current) {
+        try {
+          if (nextMuted) {
+            playerRef.current.mute()
+          } else {
+            playerRef.current.unMute()
+          }
+        } catch {
+          // ignore
+        }
       }
       try {
         localStorage.setItem(STORAGE_KEYS.MUTED, String(nextMuted))
@@ -270,9 +330,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
    */
   const setLoop = useCallback((loop: boolean): void => {
     setIsLoopingState(loop)
-    if (audioRef.current) {
-      audioRef.current.loop = loop
-    }
     try {
       localStorage.setItem(STORAGE_KEYS.LOOP, String(loop))
     } catch {
@@ -283,17 +340,16 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   /**
    * Seek to timestamp in seconds
    */
-  const seek = useCallback(
-    (seconds: number): void => {
-      const audio = audioRef.current
-      if (audio && isFinite(seconds)) {
-        const target = Math.max(0, Math.min(duration || 0, seconds))
-        audio.currentTime = target
-        setCurrentTime(target)
+  const seek = useCallback((seconds: number): void => {
+    if (playerRef.current && typeof playerRef.current.seekTo === 'function' && isFinite(seconds)) {
+      try {
+        playerRef.current.seekTo(seconds, true)
+        setCurrentTime(seconds)
+      } catch {
+        // ignore
       }
-    },
-    [duration]
-  )
+    }
+  }, [])
 
   const contextValue = useMemo<AudioContextType>(
     () => ({
@@ -337,6 +393,20 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   return (
     <AudioContext.Provider value={contextValue}>
       {children}
+      {/* Hidden YouTube Iframe Container */}
+      <div
+        id={containerId}
+        style={{
+          position: 'fixed',
+          top: '-9999px',
+          left: '-9999px',
+          width: '1px',
+          height: '1px',
+          opacity: 0,
+          pointerEvents: 'none',
+        }}
+        aria-hidden="true"
+      />
     </AudioContext.Provider>
   )
 }
