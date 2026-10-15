@@ -11,6 +11,7 @@ import ResetPassword from './pages/ResetPassword'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfUse from './pages/TermsOfUse'
 import NotFound from './pages/NotFound'
+import Admin from './pages/Admin'
 
 // Protected pages
 import Dashboard from './pages/Dashboard'
@@ -32,6 +33,7 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfUse />} />
+      <Route path="/admin" element={<Admin />} />
 
       {/* Protected routes with dashboard layout */}
       <Route element={<ProtectedRoute />}>
