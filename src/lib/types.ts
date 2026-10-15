@@ -17,6 +17,7 @@ export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night'
 export interface Profile {
   id: string
   display_name: string | null
+  avatar_url?: string | null
   timezone: string
   preferred_theme: ThemePreference
   daily_goal: number

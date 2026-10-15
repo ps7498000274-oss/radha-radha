@@ -160,7 +160,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     user?.email?.split("@")[0] ||
     "Devotee"
   const userEmail = user?.email || "devotee@radharadha.app"
-  const userAvatar = (user as any)?.user_metadata?.avatar_url
+  const profileAvatar = (authContext as any)?.profile?.avatar_url || localStorage.getItem(`radha_avatar_${user?.id}`)
+  const userAvatar = profileAvatar || (user as any)?.user_metadata?.avatar_url
 
   // Check if a navigation item is active
   const isItemActive = (itemPath: string) => {

@@ -196,6 +196,29 @@ export default function ProgressPage() {
                   onChange={(e) => setCustomCount(Number(e.target.value))}
                   required
                 />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {[
+                    { label: "5,000 (5K)", val: 5000 },
+                    { label: "50,000 (50K)", val: 50000 },
+                    { label: "1 Lakh", val: 100000 },
+                    { label: "25 Lakh", val: 2500000 },
+                    { label: "50 Lakh", val: 5000000 },
+                    { label: "1 Crore", val: 10000000 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.val}
+                      type="button"
+                      onClick={() => setCustomCount(preset.val)}
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                        customCount === preset.val
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/50 hover:bg-muted text-muted-foreground border-border"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Formatted: {formatIndianNumber(customCount || 0)}
                 </p>

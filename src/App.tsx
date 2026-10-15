@@ -39,6 +39,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/add-jap" element={<DailyEntry />} />
           <Route path="/progress" element={<Progress />} />
+          <Route path="/targets" element={<Progress />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/history" element={<History />} />
           <Route path="/settings" element={<Settings />} />

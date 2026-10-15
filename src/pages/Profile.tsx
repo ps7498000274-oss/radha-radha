@@ -1,27 +1,22 @@
-import React, { useState } from "react"
+import React, { useState, useRef } from "react"
 import {
   User,
   Mail,
   Calendar,
-  Award,
-  Flame,
-  Trophy,
-  Shield,
   Save,
   KeyRound,
-  CheckCircle2,
-  Clock,
-  Sparkles,
+  Camera,
+  Trash2,
+  Upload,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuth } from "@/contexts/AuthContext"
 import { useProfile } from "@/hooks/useProfile"
 import { useJapEntries } from "@/hooks/useJapEntries"
 import { useAnalytics } from "@/hooks/useAnalytics"
-import { LotusIcon } from "@/components/layout/Header"
 import { MILESTONES } from "@/lib/constants"
 import { formatIndianNumber, formatDate } from "@/lib/formatters"
 import { useToast } from "@/components/ui/use-toast"
@@ -33,10 +28,20 @@ export default function Profile() {
   const analytics = useAnalytics(entries)
   const { toast } = useToast()
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [displayName, setDisplayName] = useState(
     profile?.display_name || user?.user_metadata?.display_name || ""
   )
   const [dailyGoal, setDailyGoal] = useState<number>(profile?.daily_goal || 10000)
+  const [avatarUrl, setAvatarUrl] = useState<string>(() => {
+    return (
+      profile?.avatar_url ||
+      (user?.id ? localStorage.getItem(`radha_avatar_${user.id}`) : null) ||
+      (user as any)?.user_metadata?.avatar_url ||
+      ""
+    )
+  })
   const [isSaving, setIsSaving] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
 
@@ -53,18 +58,96 @@ export default function Profile() {
     (m) => analytics.allTimeTotalJapCount >= m.count
   ).length
 
+  // Handle uploading and compressing avatar image
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Max file size 3MB
+    if (file.size > 3 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 3MB.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const img = new Image()
+      img.onload = () => {
+        // Compress image to 256x256 max
+        const canvas = document.createElement("canvas")
+        const maxSize = 256
+        let width = img.width
+        let height = img.height
+
+        if (width > height) {
+          if (width > maxSize) {
+            height = Math.round((height * maxSize) / width)
+            width = maxSize
+          }
+        } else {
+          if (height > maxSize) {
+            width = Math.round((width * maxSize) / height)
+            height = maxSize
+          }
+        }
+
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext("2d")
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          const base64Url = canvas.toDataURL("image/jpeg", 0.85)
+          setAvatarUrl(base64Url)
+          if (user?.id) {
+            localStorage.setItem(`radha_avatar_${user.id}`, base64Url)
+          }
+          toast({
+            title: "Photo Selected",
+            description: "Click 'Update Profile' below to permanently save your photo.",
+          })
+        }
+      }
+      img.src = event.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemovePhoto = () => {
+    setAvatarUrl("")
+    if (user?.id) {
+      localStorage.removeItem(`radha_avatar_${user.id}`)
+    }
+    toast({
+      title: "Photo Removed",
+      description: "Default devotional monogram will be shown.",
+    })
+  }
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
     try {
+      if (user?.id) {
+        if (avatarUrl) {
+          localStorage.setItem(`radha_avatar_${user.id}`, avatarUrl)
+        } else {
+          localStorage.removeItem(`radha_avatar_${user.id}`)
+        }
+      }
+
       const { error } = await updateProfile({
         display_name: displayName.trim(),
         daily_goal: Number(dailyGoal),
+        avatar_url: avatarUrl || null,
       })
       if (error) {
         toast({ title: "Failed to update profile", variant: "destructive" })
       } else {
-        toast({ title: "Profile Updated 🙏", description: "Your details have been saved." })
+        toast({ title: "Profile Updated 🙏", description: "Your details and photo have been saved." })
       }
     } finally {
       setIsSaving(false)
@@ -101,27 +184,85 @@ export default function Profile() {
           साधक परिचय एवं विवरण
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage your personal sadhana identity and review your spiritual journey milestones.
+          Manage your personal sadhana identity, profile photo, and review your spiritual journey milestones.
         </p>
       </div>
 
-      {/* Profile Identity Card */}
+      {/* Profile Identity Card with Photo Upload */}
       <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-r from-card via-card to-devotional-indigo/5 p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
-          <Avatar className="h-24 w-24 border-2 border-devotional-gold shadow-md text-2xl font-bold">
-            <AvatarFallback className="bg-devotional-indigo text-white font-serif">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          
+          {/* Avatar with Camera Trigger */}
+          <div className="relative group">
+            <Avatar className="h-28 w-28 border-4 border-devotional-gold shadow-lg text-2xl font-bold overflow-hidden bg-devotional-indigo/20">
+              {avatarUrl ? (
+                <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+              ) : null}
+              <AvatarFallback className="bg-devotional-indigo text-white font-serif text-3xl">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
 
-          <div className="space-y-1">
-            <h2 className="text-2xl font-extrabold text-foreground">
-              {displayName || "Devotee"}
-            </h2>
-            <p className="text-sm text-muted-foreground flex items-center justify-center sm:justify-start gap-1.5">
-              <Mail className="h-3.5 w-3.5" />
-              <span>{email}</span>
-            </p>
+            {/* Change photo button overlay */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-xs cursor-pointer"
+              title="Upload new picture"
+            >
+              <Camera className="h-6 w-6 mb-1 text-amber-300" />
+              <span className="text-[10px] font-semibold">Change</span>
+            </button>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageUpload}
+          />
+
+          <div className="space-y-1 flex-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-extrabold text-foreground">
+                  {displayName || "Devotee"}
+                </h2>
+                <p className="text-sm text-muted-foreground flex items-center justify-center sm:justify-start gap-1.5">
+                  <Mail className="h-3.5 w-3.5" />
+                  <span>{email}</span>
+                </p>
+              </div>
+
+              {/* Photo Action Buttons */}
+              <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-8 gap-1.5 text-xs border-devotional-gold/40 hover:bg-devotional-gold/10"
+                >
+                  <Upload className="h-3.5 w-3.5 text-devotional-gold" />
+                  <span>{avatarUrl ? "Change Photo" : "Upload Photo"}</span>
+                </Button>
+
+                {avatarUrl && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRemovePhoto}
+                    className="h-8 gap-1.5 text-xs text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Remove</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <p className="text-xs text-muted-foreground flex items-center justify-center sm:justify-start gap-1.5 pt-1">
               <Calendar className="h-3.5 w-3.5 text-devotional-gold" />
               <span>Sadhana Began: {memberSince}</span>
