@@ -36,7 +36,7 @@ import { useAudio } from "@/contexts/AudioContext"
 import { useSettings } from "@/hooks/useSettings"
 import { useProfile } from "@/hooks/useProfile"
 import { useJapEntries } from "@/hooks/useJapEntries"
-import { formatIndianNumber } from "@/lib/formatters"
+import { formatIndianNumber, sanitizeCsvCell } from "@/lib/formatters"
 import { COMMON_TIMEZONES } from "@/lib/constants"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -102,7 +102,7 @@ export default function Settings() {
     const rows = entries
       .map(
         (e) =>
-          `"${e.entry_date}",${e.jap_count},"${(e.notes || "").replace(/"/g, '""')}","${e.created_at}"`
+          `${sanitizeCsvCell(e.entry_date)},${Number(e.jap_count)},${sanitizeCsvCell(e.notes || "")},${sanitizeCsvCell(e.created_at)}`
       )
       .join("\n")
 

@@ -219,12 +219,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   )
 
   /**
-   * Sign out and clear all local state
+   * Sign out and clear all local state and sensitive storage
    */
   const signOut = useCallback(async (): Promise<{ error: Error | null }> => {
+    const currentUserId = user?.id
+
     setUser(null)
     setSession(null)
     setProfile(null)
+
+    // Clear session storage securely (including admin tokens and session flags)
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.removeItem('radha_radha_admin_auth')
+        window.sessionStorage.clear()
+      }
+      if (typeof window !== 'undefined' && window.localStorage && currentUserId) {
+        window.localStorage.removeItem(`radha_avatar_${currentUserId}`)
+      }
+    } catch (storageErr) {
+      console.warn('Storage cleanup error during signOut:', storageErr)
+    }
 
     if (!isSupabaseConfigured()) {
       return { error: null }
@@ -236,7 +251,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (err: any) {
       return { error: err }
     }
-  }, [])
+  }, [user?.id])
 
   /**
    * Send password reset email

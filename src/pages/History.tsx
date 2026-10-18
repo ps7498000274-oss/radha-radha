@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/table"
 import { Label } from "@/components/ui/label"
 import { useJapEntries } from "@/hooks/useJapEntries"
-import { formatIndianNumber, formatDate } from "@/lib/formatters"
+import { formatIndianNumber, formatDate, sanitizeCsvCell } from "@/lib/formatters"
 import { type DailyJapEntry } from "@/lib/types"
 import { useToast } from "@/components/ui/use-toast"
 import { EmptyState } from "@/components/common/EmptyState"
@@ -171,7 +171,7 @@ export default function HistoryPage() {
     const rows = entries
       .map(
         (e) =>
-          `"${e.entry_date}",${e.jap_count},"${(e.notes || "").replace(/"/g, '""')}","${e.created_at}"`
+          `${sanitizeCsvCell(e.entry_date)},${Number(e.jap_count)},${sanitizeCsvCell(e.notes || "")},${sanitizeCsvCell(e.created_at)}`
       )
       .join("\n")
 

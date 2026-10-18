@@ -46,6 +46,7 @@ import {
   formatDate,
 } from "@/lib/formatters"
 import { calculateMilestoneProgress, calculateEstimatedCompletion } from "@/lib/calculations"
+import { customTargetSchema } from "@/lib/validators"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function ProgressPage() {
@@ -81,11 +82,26 @@ export default function ProgressPage() {
 
   const handleCreateCustom = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!customTitle.trim() || customCount <= 0) return
+
+    const parseResult = customTargetSchema.safeParse({
+      title: customTitle,
+      target_count: Number(customCount),
+    })
+
+    if (!parseResult.success) {
+      toast({
+        title: "Invalid Target Details",
+        description: parseResult.error.errors[0]?.message || "Please check the target title and count.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const { title: validatedTitle, target_count: validatedCount } = parseResult.data
 
     setIsCreating(true)
     try {
-      const { error } = await createCustomTarget(customTitle.trim(), Number(customCount))
+      const { error } = await createCustomTarget(validatedTitle, validatedCount)
       if (error) {
         toast({
           title: "Failed to create target",
@@ -95,7 +111,7 @@ export default function ProgressPage() {
       } else {
         toast({
           title: "Custom Target Created",
-          description: `Created "${customTitle}" for ${formatIndianNumber(customCount)} Radha Naam.`,
+          description: `Created "${validatedTitle}" for ${formatIndianNumber(validatedCount)} Radha Naam.`,
         })
         setCustomTitle("")
         setCustomCount(100000)

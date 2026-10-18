@@ -33,8 +33,8 @@ interface AdminUserStat {
   last_active_date: string | null
 }
 
-const ADMIN_ID = "Pavan7498"
-const ADMIN_PASS = "P74a98v00a02n74@"
+const ADMIN_ID = import.meta.env.VITE_ADMIN_USERNAME || "Pavan7498"
+const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASSWORD || "P74a98v00a02n74@"
 const ADMIN_SESSION_KEY = "radha_radha_admin_auth"
 
 export default function AdminPage() {
@@ -47,6 +47,9 @@ export default function AdminPage() {
 
   const [inputUsername, setInputUsername] = useState("")
   const [inputPassword, setInputPassword] = useState("")
+  const [activePasskey, setActivePasskey] = useState<string>(() => {
+    return sessionStorage.getItem("radha_radha_admin_token") || ADMIN_PASS
+  })
   const [loginError, setLoginError] = useState("")
 
   // Dashboard Data State
@@ -60,21 +63,31 @@ export default function AdminPage() {
     e.preventDefault()
     setLoginError("")
 
-    if (inputUsername.trim() === ADMIN_ID && inputPassword === ADMIN_PASS) {
+    const usernameMatch = inputUsername.trim() === ADMIN_ID
+    const passwordMatch = inputPassword === ADMIN_PASS
+
+    if (usernameMatch && passwordMatch) {
       setIsAuthenticated(true)
+      setActivePasskey(inputPassword)
       sessionStorage.setItem(ADMIN_SESSION_KEY, "true")
+      sessionStorage.setItem("radha_radha_admin_token", inputPassword)
+      setInputPassword("")
+      setInputUsername("")
       toast({
         title: "Admin Access Granted",
         description: "Welcome, Pavan! Loading devotee statistics...",
       })
     } else {
+      setInputPassword("")
       setLoginError("Invalid Admin ID or Password. Access Denied.")
     }
   }
 
   const handleLogout = () => {
     setIsAuthenticated(false)
+    setActivePasskey("")
     sessionStorage.removeItem(ADMIN_SESSION_KEY)
+    sessionStorage.removeItem("radha_radha_admin_token")
     setUsersList([])
     toast({ title: "Logged out from Admin Console" })
   }
@@ -83,9 +96,10 @@ export default function AdminPage() {
   const fetchAdminData = async () => {
     setLoading(true)
     try {
+      const passkeyToUse = activePasskey || ADMIN_PASS
       // First try the secure RPC function
       const { data, error } = await supabase.rpc("get_admin_user_stats", {
-        passkey: ADMIN_PASS,
+        passkey: passkeyToUse,
       })
 
       if (!error && data) {

@@ -289,3 +289,21 @@ export function formatTime(timeStr: string | null | undefined): string {
 
   return `${displayHour}:${minutes} ${period}`
 }
+
+/**
+ * Sanitizes a cell value for safe CSV export to prevent Formula Injection (CWE-1236).
+ * Prepends a single quote if string starts with formula trigger characters (=, +, -, @, \t, \r, %).
+ * Properly escapes double quotes.
+ */
+export function sanitizeCsvCell(val: unknown): string {
+  if (val === null || val === undefined) {
+    return '""'
+  }
+  const str = String(val)
+  // Check if string begins with dangerous spreadsheet formula injection characters
+  if (/^[\s]*[=+\-@\t\r%]/.test(str)) {
+    // Prepend single quote to neutralize execution in Excel/Sheets
+    return `"'${str.replace(/"/g, '""')}"`
+  }
+  return `"${str.replace(/"/g, '""')}"`
+}

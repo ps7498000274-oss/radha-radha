@@ -133,7 +133,7 @@ export default function Register() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="At least 6 characters"
+                  placeholder="Min 8 chars, 1 uppercase, 1 lowercase, 1 number"
                   className="pl-10"
                   autoComplete="new-password"
                   {...register("password")}

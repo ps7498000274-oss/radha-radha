@@ -10,17 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/contexts/AuthContext"
 
-const updatePasswordSchema = z
-  .object({
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    confirm_password: z.string().min(6, "Please confirm your password"),
-  })
-  .refine((data) => data.password === data.confirm_password, {
-    message: "Passwords do not match",
-    path: ["confirm_password"],
-  })
-
-type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>
+import { updatePasswordSchema, type UpdatePasswordInput } from "@/lib/validators"
 
 export default function ResetPassword() {
   const { updatePassword } = useAuth()
@@ -87,7 +77,7 @@ export default function ResetPassword() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="At least 6 characters"
+                  placeholder="Min 8 chars, 1 uppercase, 1 lowercase, 1 number"
                   className="pl-10"
                   {...register("password")}
                 />

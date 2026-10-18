@@ -63,12 +63,32 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>
 
+export const strongPasswordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters long')
+  .max(128, 'Password must not exceed 128 characters')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number')
+
+export const updatePasswordSchema = z
+  .object({
+    password: strongPasswordSchema,
+    confirm_password: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine((data) => data.password === data.confirm_password, {
+    message: 'Passwords do not match',
+    path: ['confirm_password'],
+  })
+
+export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>
+
 export const registerSchema = z
   .object({
     display_name: z.string().trim().min(2, 'Name must be at least 2 characters').max(50),
     email: z.string().email('Please enter a valid email address'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
-    confirm_password: z.string().min(6, 'Please confirm your password'),
+    password: strongPasswordSchema,
+    confirm_password: z.string().min(1, 'Please confirm your password'),
   })
   .refine((data) => data.password === data.confirm_password, {
     message: 'Passwords do not match',
@@ -82,7 +102,8 @@ export const customTargetSchema = z.object({
   target_count: z
     .number({ invalid_type_error: 'Target count must be a number' })
     .int('Target count must be a whole number')
-    .min(108, 'Target count must be at least 108'),
+    .min(108, 'Target count must be at least 108')
+    .max(1000000000, 'Target count cannot exceed 100 Crore'),
 })
 
 export type CustomTargetFormData = z.infer<typeof customTargetSchema>
