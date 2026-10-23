@@ -11,7 +11,9 @@ import {
   Sparkles,
   ArrowUpDown,
   AlertTriangle,
+  Mail,
 } from "lucide-react"
+import { differenceInCalendarDays } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
@@ -23,6 +25,7 @@ import { Link, Navigate } from "react-router-dom"
 
 interface AdminUserStat {
   user_id: string
+  email: string
   display_name: string | null
   timezone: string
   daily_goal: number
@@ -178,11 +181,24 @@ export default function AdminPage() {
     )
   }
 
+  // Helper to calculate how many days since registration ("kitne dino se account banaya hai")
+  const getDaysSinceJoined = (dateStr: string): string => {
+    try {
+      const diff = Math.max(0, differenceInCalendarDays(new Date(), new Date(dateStr)))
+      if (diff === 0) return "Registered Today"
+      if (diff === 1) return "1 day ago"
+      return `${diff} days ago`
+    } catch {
+      return ""
+    }
+  }
+
   // Filtered and sorted users
   const filteredUsers = usersList.filter((u) => {
-    const q = searchQuery.toLowerCase()
+    const q = searchQuery.toLowerCase().trim()
     return (
       (u.display_name || "").toLowerCase().includes(q) ||
+      (u.email || "").toLowerCase().includes(q) ||
       u.user_id.toLowerCase().includes(q)
     )
   })
@@ -307,11 +323,11 @@ export default function AdminPage() {
         {/* Table & Filter Bar */}
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 shadow-xl space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="relative w-full sm:w-80">
+            <div className="relative w-full sm:w-96">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
               <Input
-                aria-label="Search by devotee name or user ID"
-                placeholder="Search by devotee name or user ID..."
+                aria-label="Search by devotee email, name, or user ID"
+                placeholder="Search by devotee email, name, or user ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 bg-slate-950 border-slate-800 text-white placeholder:text-slate-500 text-xs h-9"
@@ -365,13 +381,13 @@ export default function AdminPage() {
               <thead className="bg-slate-950/80 text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-800">
                 <tr>
                   <th className="py-3 px-4">#</th>
-                  <th className="py-3 px-4">Devotee Name</th>
-                  <th className="py-3 px-4">User ID</th>
+                  <th className="py-3 px-4">Devotee & Email</th>
                   <th className="py-3 px-4">Lifetime Jap Count</th>
                   <th className="py-3 px-4">Active Days</th>
-                  <th className="py-3 px-4">Daily Goal</th>
+                  <th className="py-3 px-4">Registered (Kitne Dino Se)</th>
                   <th className="py-3 px-4">Last Activity</th>
-                  <th className="py-3 px-4">Joined Date</th>
+                  <th className="py-3 px-4">Daily Goal</th>
+                  <th className="py-3 px-4">User ID</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 bg-slate-900/30">
@@ -385,28 +401,52 @@ export default function AdminPage() {
                   filteredUsers.map((devotee, index) => (
                     <tr key={devotee.user_id} className="hover:bg-slate-800/40 transition-colors">
                       <td className="py-3 px-4 text-slate-500 font-mono">{index + 1}</td>
-                      <td className="py-3 px-4 font-semibold text-white">
-                        {devotee.display_name || "Anonymous Devotee"}
+                      <td className="py-3 px-4">
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-white">
+                              {devotee.display_name || "Devotee"}
+                            </span>
+                            {devotee.user_id === user?.id && (
+                              <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-400/40 px-1.5 py-0.5 rounded font-medium">
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-1">
+                            <Mail className="w-3.5 h-3.5 text-amber-400/70 shrink-0" />
+                            <span className="text-slate-300 font-mono text-[11px]">
+                              {devotee.email || "No Email"}
+                            </span>
+                          </div>
+                        </div>
                       </td>
-                      <td className="py-3 px-4 font-mono text-slate-400 text-[10px]">
-                        {devotee.user_id}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-amber-400">
+                      <td className="py-3 px-4 font-bold text-amber-400 text-sm">
                         {formatIndianNumber(devotee.total_jap_count)}
                       </td>
-                      <td className="py-3 px-4 text-emerald-400">
-                        {devotee.days_active} Days
+                      <td className="py-3 px-4 text-emerald-400 font-medium">
+                        {devotee.days_active} {devotee.days_active === 1 ? "Day" : "Days"}
                       </td>
                       <td className="py-3 px-4 text-slate-300">
-                        {formatIndianNumber(devotee.daily_goal)}
+                        <div className="flex flex-col">
+                          <span className="text-slate-200 font-medium">
+                            {formatDate(devotee.created_at, "dd MMM yyyy")}
+                          </span>
+                          <span className="text-amber-400/80 text-[11px]">
+                            {getDaysSinceJoined(devotee.created_at)}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-slate-400">
                         {devotee.last_active_date
                           ? formatDate(devotee.last_active_date, "dd MMM yyyy")
-                          : "No entries yet"}
+                          : <span className="text-slate-500 italic">No entries yet</span>}
                       </td>
-                      <td className="py-3 px-4 text-slate-400">
-                        {formatDate(devotee.created_at, "dd MMM yyyy")}
+                      <td className="py-3 px-4 text-slate-300">
+                        {formatIndianNumber(devotee.daily_goal)}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-slate-500 text-[10px]">
+                        {devotee.user_id}
                       </td>
                     </tr>
                   ))

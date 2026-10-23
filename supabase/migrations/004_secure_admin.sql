@@ -56,18 +56,21 @@ REVOKE EXECUTE ON FUNCTION public.is_admin() FROM anon;
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 
 -- -----------------------------------------------------------------------------
--- 3. DROP THE OLD PASSKEY-BASED RPC AND CREATE SECURE REPLACEMENT
+-- 3. DROP OLD FUNCTIONS AND CREATE SECURE REPLACEMENT
 -- The old function accepted a TEXT passkey that was embedded in client JS.
--- The new function takes NO parameters and checks auth.uid() against admin_users.
+-- The new function takes NO parameters, checks auth.uid() against admin_users,
+-- and queries auth.users directly to display registered devotee emails and stats.
 -- -----------------------------------------------------------------------------
 
--- Drop the compromised passkey-based function
+-- Drop previous function signatures to avoid return-type mismatch errors
 DROP FUNCTION IF EXISTS public.get_admin_user_stats(TEXT);
+DROP FUNCTION IF EXISTS public.get_admin_user_stats();
 
--- Create the secure replacement (no parameters, uses auth.uid())
+-- Create the secure replacement returning devotee email and sadhana stats
 CREATE OR REPLACE FUNCTION public.get_admin_user_stats()
 RETURNS TABLE (
     user_id UUID,
+    email TEXT,
     display_name TEXT,
     timezone TEXT,
     daily_goal BIGINT,
@@ -88,18 +91,27 @@ BEGIN
 
     RETURN QUERY
     SELECT 
-        p.id AS user_id,
-        p.display_name,
-        p.timezone,
-        p.daily_goal,
-        p.created_at,
+        u.id AS user_id,
+        COALESCE(u.email, 'No Email')::TEXT AS email,
+        COALESCE(
+            NULLIF(p.display_name, ''),
+            NULLIF(u.raw_user_meta_data->>'full_name', ''),
+            NULLIF(u.raw_user_meta_data->>'display_name', ''),
+            NULLIF(u.raw_user_meta_data->>'name', ''),
+            split_part(u.email, '@', 1),
+            'Devotee'
+        )::TEXT AS display_name,
+        COALESCE(p.timezone, 'Asia/Kolkata')::TEXT AS timezone,
+        COALESCE(p.daily_goal, 1008)::BIGINT AS daily_goal,
+        u.created_at,
         COALESCE(SUM(d.jap_count), 0)::BIGINT AS total_jap_count,
         COUNT(d.id)::BIGINT AS days_active,
         MAX(d.entry_date) AS last_active_date
-    FROM public.profiles p
-    LEFT JOIN public.daily_jap_entries d ON d.user_id = p.id
-    GROUP BY p.id, p.display_name, p.timezone, p.daily_goal, p.created_at
-    ORDER BY p.created_at DESC;
+    FROM auth.users u
+    LEFT JOIN public.profiles p ON p.id = u.id
+    LEFT JOIN public.daily_jap_entries d ON d.user_id = u.id
+    GROUP BY u.id, u.email, u.created_at, u.raw_user_meta_data, p.display_name, p.timezone, p.daily_goal
+    ORDER BY u.created_at DESC;
 END;
 $$;
 
