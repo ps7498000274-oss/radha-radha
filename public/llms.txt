@@ -1,0 +1,23 @@
+# Radha Radha — Naam Jap Tracker
+
+> A personal, private devotional web application for recording, analyzing, and maintaining daily Radha Naam Jap sadhana and spiritual milestones.
+
+## Overview
+- **Name:** Radha Radha — Naam Jap Tracker
+- **Tagline:** Har Naam, Ek Kadam Apne Lakshya Ki Or (हर नाम, एक कदम अपने लक्ष्य की ओर)
+- **Primary Audience:** Spiritual devotees practicing regular Naam Jap meditation
+- **Privacy Model:** 100% private records with Supabase Row Level Security. No public profiles or leaderboards.
+
+## Core Capabilities
+- **Daily Naam Jap Logging:** Record daily chant counts, custom spiritual notes, and quick additions (+108, +1,008, +5,000, +10,000).
+- **Digital Mala (Tap Counter):** Interactive live tap counter with haptic feedback, auto-save, and midnight rollover sync.
+- **Milestone Tracking:** Predefined milestones (1 Crore, 3 Crore, 5 Crore, 12 Crore) and user-defined custom targets.
+- **Sadhana Analytics:** Daily trends, weekly breakdowns, monthly averages, streak tracking, and GitHub-style 52-week activity heatmap.
+- **Continuous Devotional Audio:** Seamless, background Radha Naam audio player with volume, looping, and progress controls.
+
+## Public Pages
+- Home / Landing: https://radha-radha.vercel.app/
+- Sign In: https://radha-radha.vercel.app/login
+- Create Account: https://radha-radha.vercel.app/register
+- Privacy Policy: https://radha-radha.vercel.app/privacy
+- Terms of Use: https://radha-radha.vercel.app/terms

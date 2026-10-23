@@ -151,6 +151,8 @@ export default function Settings() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-2">
             <div className="relative w-full sm:w-64">
               <Input
+                id="dailyGoalInput"
+                aria-label="Daily Naam Jap Goal"
                 type="number"
                 min="108"
                 max="1000000"
@@ -195,6 +197,7 @@ export default function Settings() {
                 <span>{Math.round(volume * 100)}%</span>
               </div>
               <Slider
+                aria-label="Audio Playback Volume"
                 value={[volume * 100]}
                 max={100}
                 step={1}
@@ -205,12 +208,12 @@ export default function Settings() {
             {/* Loop Toggle */}
             <div className="flex items-center justify-between border-t border-border/50 pt-3">
               <div>
-                <Label className="text-sm font-semibold">Continuous Infinite Loop</Label>
+                <Label htmlFor="loop-switch" className="text-sm font-semibold">Continuous Infinite Loop</Label>
                 <p className="text-xs text-muted-foreground">
                   Seamlessly replay the Radha Naam recording without stopping
                 </p>
               </div>
-              <Switch checked={isLooping} onCheckedChange={setLoop} />
+              <Switch id="loop-switch" aria-label="Continuous Infinite Loop" checked={isLooping} onCheckedChange={setLoop} />
             </div>
 
             {/* Test Play */}

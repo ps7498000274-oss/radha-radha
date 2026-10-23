@@ -2,25 +2,24 @@ import React, { useState, useEffect } from "react"
 import {
   ShieldCheck,
   Lock,
-  User,
   Users,
   Activity,
-  Calendar,
   Search,
   LogOut,
   RefreshCw,
   Clock,
   Sparkles,
   ArrowUpDown,
-  ExternalLink,
+  AlertTriangle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { supabase } from "@/lib/supabase"
+import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 import { formatIndianNumber, formatDate } from "@/lib/formatters"
 import { useToast } from "@/components/ui/use-toast"
-import { Link } from "react-router-dom"
+import { useAuth } from "@/contexts/AuthContext"
+import { Link, Navigate } from "react-router-dom"
 
 interface AdminUserStat {
   user_id: string
@@ -33,24 +32,23 @@ interface AdminUserStat {
   last_active_date: string | null
 }
 
-const ADMIN_ID = import.meta.env.VITE_ADMIN_USERNAME || "Pavan7498"
-const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASSWORD || "P74a98v00a02n74@"
-const ADMIN_SESSION_KEY = "radha_radha_admin_auth"
-
+/**
+ * Admin Page — Server-side authorized via Supabase RPC.
+ *
+ * Authorization flow:
+ * 1. User must be authenticated via Supabase Auth (enforced by ProtectedRoute)
+ * 2. On mount, calls `get_admin_user_stats()` RPC (no parameters)
+ * 3. The RPC checks `auth.uid()` against the `admin_users` table server-side
+ * 4. If the user is NOT in admin_users, the RPC raises an exception
+ * 5. No credentials are stored in or compared by the frontend
+ */
 export default function AdminPage() {
   const { toast } = useToast()
+  const { user, loading: authLoading } = useAuth()
 
-  // Authentication State
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return sessionStorage.getItem(ADMIN_SESSION_KEY) === "true"
-  })
-
-  const [inputUsername, setInputUsername] = useState("")
-  const [inputPassword, setInputPassword] = useState("")
-  const [activePasskey, setActivePasskey] = useState<string>(() => {
-    return sessionStorage.getItem("radha_radha_admin_token") || ADMIN_PASS
-  })
-  const [loginError, setLoginError] = useState("")
+  // Admin authorization state
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null) // null = not yet checked
+  const [authError, setAuthError] = useState<string | null>(null)
 
   // Dashboard Data State
   const [usersList, setUsersList] = useState<AdminUserStat[]>([])
@@ -59,90 +57,126 @@ export default function AdminPage() {
   const [sortField, setSortField] = useState<"created_at" | "total_jap_count">("created_at")
   const [sortAsc, setSortAsc] = useState<boolean>(false)
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoginError("")
-
-    const usernameMatch = inputUsername.trim() === ADMIN_ID
-    const passwordMatch = inputPassword === ADMIN_PASS
-
-    if (usernameMatch && passwordMatch) {
-      setIsAuthenticated(true)
-      setActivePasskey(inputPassword)
-      sessionStorage.setItem(ADMIN_SESSION_KEY, "true")
-      sessionStorage.setItem("radha_radha_admin_token", inputPassword)
-      setInputPassword("")
-      setInputUsername("")
-      toast({
-        title: "Admin Access Granted",
-        description: "Welcome, Pavan! Loading devotee statistics...",
-      })
-    } else {
-      setInputPassword("")
-      setLoginError("Invalid Admin ID or Password. Access Denied.")
-    }
-  }
-
-  const handleLogout = () => {
-    setIsAuthenticated(false)
-    setActivePasskey("")
-    sessionStorage.removeItem(ADMIN_SESSION_KEY)
-    sessionStorage.removeItem("radha_radha_admin_token")
-    setUsersList([])
-    toast({ title: "Logged out from Admin Console" })
-  }
-
-  // Fetch admin data
+  // Fetch admin data — the RPC itself enforces authorization server-side
   const fetchAdminData = async () => {
+    if (!isSupabaseConfigured()) {
+      setAuthError("Supabase is not configured.")
+      setIsAdmin(false)
+      return
+    }
+
     setLoading(true)
+    setAuthError(null)
     try {
-      const passkeyToUse = activePasskey || ADMIN_PASS
-      // First try the secure RPC function
-      const { data, error } = await supabase.rpc("get_admin_user_stats", {
-        passkey: passkeyToUse,
-      })
+      const { data, error } = await supabase.rpc("get_admin_user_stats")
 
-      if (!error && data) {
-        setUsersList(data)
-      } else {
-        // Fallback: Query profiles table directly
-        const { data: profiles, error: pErr } = await supabase
-          .from("profiles")
-          .select("*")
-          .order("created_at", { ascending: false })
-
-        if (profiles) {
-          // Map profiles to stat items
-          const mapped = profiles.map((p: any) => ({
-            user_id: p.id,
-            display_name: p.display_name || "Anonymous Devotee",
-            timezone: p.timezone || "Asia/Kolkata",
-            daily_goal: p.daily_goal || 10000,
-            created_at: p.created_at,
-            total_jap_count: 0,
-            days_active: 0,
-            last_active_date: null,
-          }))
-          setUsersList(mapped)
+      if (error) {
+        // Check if this is an authorization error
+        if (
+          error.message?.includes("Unauthorized") ||
+          error.message?.includes("admin") ||
+          error.code === "P0001" // RAISE EXCEPTION code
+        ) {
+          setIsAdmin(false)
+          setAuthError("You do not have admin privileges for this console.")
+        } else {
+          // Could be a different error (e.g., function doesn't exist yet)
+          setIsAdmin(false)
+          setAuthError(
+            "Admin access check failed. Ensure migration 004_secure_admin.sql has been applied."
+          )
         }
+        setUsersList([])
+        return
       }
+
+      // If RPC succeeded, the user IS an admin
+      setIsAdmin(true)
+      setUsersList(data || [])
     } catch (err: any) {
-      console.error("Admin fetch error:", err)
-      toast({
-        title: "Error fetching data",
-        description: err?.message || "Please ensure RPC migration has been executed.",
-        variant: "destructive",
-      })
+      setIsAdmin(false)
+      setAuthError(err?.message || "An unexpected error occurred.")
+      setUsersList([])
     } finally {
       setLoading(false)
     }
   }
 
+  // Check admin status on mount (after auth is ready)
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!authLoading && user) {
       fetchAdminData()
     }
-  }, [isAuthenticated])
+  }, [authLoading, user?.id])
+
+  // If not authenticated, redirect to login
+  if (!authLoading && !user) {
+    return <Navigate to="/login" replace />
+  }
+
+  // Still loading auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <RefreshCw className="w-6 h-6 text-amber-400 animate-spin" />
+          <p className="text-sm text-slate-400">Verifying authentication...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Admin check in progress
+  if (isAdmin === null && loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <ShieldCheck className="w-8 h-8 text-amber-400 animate-pulse" />
+          <p className="text-sm text-slate-400">Verifying admin privileges...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Not an admin — show access denied
+  if (isAdmin === false) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="relative overflow-hidden rounded-3xl border border-red-500/30 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl">
+            <div className="flex flex-col items-center text-center space-y-3 mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/40 flex items-center justify-center text-red-400 shadow-inner">
+                <AlertTriangle className="w-7 h-7" />
+              </div>
+              <h1 className="text-2xl font-bold text-white tracking-wide font-serif">
+                Access Denied
+              </h1>
+              <p className="text-xs text-slate-400 max-w-xs">
+                {authError || "Your account does not have admin privileges. Contact the system administrator."}
+              </p>
+            </div>
+
+            <div className="text-center pt-2 space-y-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchAdminData}
+                className="border-slate-700 text-slate-300 hover:text-white text-xs"
+              >
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                Retry
+              </Button>
+              <div>
+                <Link to="/" className="text-xs text-slate-400 hover:text-amber-400 transition-colors">
+                  ← Return to Radha Radha Home
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Filtered and sorted users
   const filteredUsers = usersList.filter((u) => {
@@ -171,84 +205,7 @@ export default function AdminPage() {
   const totalActiveDays = usersList.reduce((acc, curr) => acc + Number(curr.days_active || 0), 0)
 
   // -------------------------------------------------------------
-  // Render Login Gate if Not Authenticated
-  // -------------------------------------------------------------
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          {/* Card */}
-          <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl">
-            <div className="flex flex-col items-center text-center space-y-3 mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-inner">
-                <ShieldCheck className="w-7 h-7" />
-              </div>
-              <h1 className="text-2xl font-bold text-white tracking-wide font-serif">
-                Radha Radha Admin Console
-              </h1>
-              <p className="text-xs text-slate-400">
-                Enter your administrative credentials to view devotee accounts and analytics.
-              </p>
-            </div>
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Admin ID</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-                  <Input
-                    type="text"
-                    placeholder="Enter Admin ID"
-                    value={inputUsername}
-                    onChange={(e) => setInputUsername(e.target.value)}
-                    className="pl-9 bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-                  <Input
-                    type="password"
-                    placeholder="Enter Password"
-                    value={inputPassword}
-                    onChange={(e) => setInputPassword(e.target.value)}
-                    className="pl-9 bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              {loginError && (
-                <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
-                  {loginError}
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold shadow-lg"
-              >
-                Access Admin Panel
-              </Button>
-
-              <div className="text-center pt-2">
-                <Link to="/" className="text-xs text-slate-400 hover:text-amber-400 transition-colors">
-                  ← Return to Radha Radha Home
-                </Link>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // -------------------------------------------------------------
-  // Render Admin Dashboard
+  // Render Admin Dashboard (only reached if isAdmin === true)
   // -------------------------------------------------------------
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-10 font-sans">
@@ -262,7 +219,7 @@ export default function AdminPage() {
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                <span>Radha Radha — Master Admin Console</span>
+                <span>Radha Radha — Admin Console</span>
                 <span className="text-[10px] uppercase font-bold tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full">
                   Admin Active
                 </span>
@@ -286,13 +243,15 @@ export default function AdminPage() {
             </Button>
 
             <Button
+              asChild
               variant="destructive"
               size="sm"
-              onClick={handleLogout}
               className="gap-2 text-xs bg-red-600/80 hover:bg-red-600"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Logout</span>
+              <Link to="/">
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Exit Admin</span>
+              </Link>
             </Button>
           </div>
         </div>
@@ -351,6 +310,7 @@ export default function AdminPage() {
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
               <Input
+                aria-label="Search by devotee name or user ID"
                 placeholder="Search by devotee name or user ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -458,7 +418,7 @@ export default function AdminPage() {
 
         {/* Footer Note */}
         <div className="text-center text-xs text-slate-500 pb-8">
-          <span>Radha Radha — Naam Jap Tracker Master Control Panel • Confidential Data</span>
+          <span>Radha Radha — Naam Jap Tracker Admin Console • Confidential Data</span>
         </div>
       </div>
     </div>

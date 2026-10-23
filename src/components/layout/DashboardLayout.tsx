@@ -452,6 +452,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <button
                   type="button"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  aria-label="User account menu"
                   className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-accent/80 transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
                   aria-expanded={userMenuOpen}
                   aria-haspopup="true"

@@ -220,6 +220,7 @@ export default function HistoryPage() {
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
+              aria-label="Search in notes"
               placeholder="Search in notes..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -231,6 +232,7 @@ export default function HistoryPage() {
           <div className="relative">
             <ArrowUpDown className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <select
+              aria-label="Sort entries by"
               value={sortBy}
               onChange={(e: any) => setSortBy(e.target.value)}
               className="w-full h-10 pl-10 pr-3 rounded-xl border border-input bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring"
@@ -245,6 +247,7 @@ export default function HistoryPage() {
           {/* From Date */}
           <div className="relative">
             <Input
+              aria-label="Filter from date"
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
@@ -256,6 +259,7 @@ export default function HistoryPage() {
           {/* To Date */}
           <div className="relative">
             <Input
+              aria-label="Filter to date"
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}

@@ -103,6 +103,7 @@ export function AudioFullPlayer({ className }: { className?: string }) {
         </div>
         <div className="relative flex items-center">
           <Slider
+            aria-label="Seek audio track position"
             value={[currentTime]}
             max={duration > 0 ? duration : 100}
             step={0.5}
@@ -158,6 +159,7 @@ export function AudioFullPlayer({ className }: { className?: string }) {
 
           <div className="w-24">
             <Slider
+              aria-label="Audio Volume Control"
               value={[isMuted ? 0 : volume * 100]}
               max={100}
               step={1}

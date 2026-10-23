@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /forgot-password
+Allow: /privacy
+Allow: /terms
+
+# Disallow private user areas and administrative endpoints
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /tap-counter
+Disallow: /add-jap
+Disallow: /progress
+Disallow: /targets
+Disallow: /analytics
+Disallow: /history
+Disallow: /settings
+Disallow: /profile
+Disallow: /reset-password
+
+Sitemap: https://radha-radha.vercel.app/sitemap.xml

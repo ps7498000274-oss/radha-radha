@@ -1,7 +1,7 @@
 /**
  * Radha Radha — Naam Jap Tracker
- * AudioContext — Global persistent audio player with seamless YouTube IFrame API integration
- * Plays the sacred 11,000 Radha Naam Jap track reliably without needing local MP3 files
+ * AudioContext — Global persistent audio player with lazy-loaded YouTube IFrame API integration
+ * Plays the sacred 11,000 Radha Naam Jap track reliably on demand without blocking initial page load
  */
 
 import React, {
@@ -31,6 +31,7 @@ export interface AudioContextType {
   toggleMute: () => void
   setLoop: (bool: boolean) => void
   seek: (seconds: number) => void
+  preloadAudio: () => void
 }
 
 const STORAGE_KEYS = {
@@ -100,118 +101,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
   const playerRef = useRef<any>(null)
   const timerRef = useRef<any>(null)
+  const pendingAutoPlayRef = useRef<boolean>(false)
+  const isApiLoadingRef = useRef<boolean>(false)
   const containerId = 'yt-bg-devotional-player'
 
-  // Load YouTube IFrame API script
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const loadAPI = () => {
-      if (window.YT && window.YT.Player) {
-        initPlayer()
-        return
-      }
-
-      if (!document.getElementById('youtube-iframe-api')) {
-        const tag = document.createElement('script')
-        tag.id = 'youtube-iframe-api'
-        tag.src = 'https://www.youtube.com/iframe_api'
-        const firstScriptTag = document.getElementsByTagName('script')[0]
-        firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag)
-      }
-
-      window.onYouTubeIframeAPIReady = () => {
-        initPlayer()
-      }
-    }
-
-    const initPlayer = () => {
-      if (!window.YT || !window.YT.Player || playerRef.current) return
-
-      try {
-        playerRef.current = new window.YT.Player(containerId, {
-          height: '1',
-          width: '1',
-          videoId: DEFAULT_YT_VIDEO_ID,
-          playerVars: {
-            autoplay: 0,
-            controls: 0,
-            disablekb: 1,
-            fs: 0,
-            loop: isLooping ? 1 : 0,
-            playlist: DEFAULT_YT_VIDEO_ID,
-            modestbranding: 1,
-            playsinline: 1,
-            rel: 0,
-          },
-          events: {
-            onReady: (event: any) => {
-              setIsLoaded(true)
-              setHasError(false)
-              try {
-                event.target.setVolume(Math.round(volume * 100))
-                if (isMuted) {
-                  event.target.mute()
-                } else {
-                  event.target.unMute()
-                }
-                const dur = event.target.getDuration()
-                if (dur && isFinite(dur)) {
-                  setDuration(dur)
-                }
-              } catch (e) {
-                console.warn('YT ready handler warn:', e)
-              }
-            },
-            onStateChange: (event: any) => {
-              // YT.PlayerState: PLAYING = 1, PAUSED = 2, ENDED = 0, BUFFERING = 3
-              if (event.data === 1) {
-                setIsPlaying(true)
-                setAutoplayBlocked(false)
-                startProgressTimer()
-              } else if (event.data === 2) {
-                setIsPlaying(false)
-                stopProgressTimer()
-              } else if (event.data === 0) {
-                stopProgressTimer()
-                if (isLooping && playerRef.current) {
-                  playerRef.current.seekTo(0, true)
-                  playerRef.current.playVideo()
-                } else {
-                  setIsPlaying(false)
-                }
-              }
-            },
-            onError: (err: any) => {
-              console.warn('YouTube Player error:', err)
-              setHasError(true)
-              setIsPlaying(false)
-              stopProgressTimer()
-            },
-          },
-        })
-      } catch (err) {
-        console.warn('Failed to init YT player:', err)
-        setHasError(true)
-      }
-    }
-
-    loadAPI()
-
-    return () => {
-      stopProgressTimer()
-      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
-        try {
-          playerRef.current.destroy()
-        } catch {
-          // ignore
-        }
-        playerRef.current = null
-      }
+  const stopProgressTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
     }
   }, [])
 
-  const startProgressTimer = () => {
+  const startProgressTimer = useCallback(() => {
     stopProgressTimer()
     timerRef.current = setInterval(() => {
       if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
@@ -225,20 +126,152 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         }
       }
     }, 500)
-  }
-
-  const stopProgressTimer = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-  }
+  }, [stopProgressTimer])
 
   /**
-   * Play audio
+   * Lazily loads the YouTube IFrame API script and initializes the player on first demand
+   */
+  const loadAudioPlayer = useCallback(
+    (autoPlayOnReady = false) => {
+      if (typeof window === 'undefined') return
+
+      if (playerRef.current) {
+        if (autoPlayOnReady && typeof playerRef.current.playVideo === 'function') {
+          playerRef.current.playVideo()
+        }
+        return
+      }
+
+      if (autoPlayOnReady) {
+        pendingAutoPlayRef.current = true
+      }
+
+      if (isApiLoadingRef.current) return
+      isApiLoadingRef.current = true
+
+      const createPlayer = () => {
+        if (!window.YT || !window.YT.Player || playerRef.current) return
+
+        try {
+          playerRef.current = new window.YT.Player(containerId, {
+            height: '1',
+            width: '1',
+            videoId: DEFAULT_YT_VIDEO_ID,
+            playerVars: {
+              autoplay: pendingAutoPlayRef.current ? 1 : 0,
+              controls: 0,
+              disablekb: 1,
+              fs: 0,
+              loop: isLooping ? 1 : 0,
+              playlist: DEFAULT_YT_VIDEO_ID,
+              modestbranding: 1,
+              playsinline: 1,
+              rel: 0,
+            },
+            events: {
+              onReady: (event: any) => {
+                setIsLoaded(true)
+                setHasError(false)
+                isApiLoadingRef.current = false
+                try {
+                  event.target.setVolume(Math.round(volume * 100))
+                  if (isMuted) {
+                    event.target.mute()
+                  } else {
+                    event.target.unMute()
+                  }
+                  const dur = event.target.getDuration()
+                  if (dur && isFinite(dur)) {
+                    setDuration(dur)
+                  }
+                  if (pendingAutoPlayRef.current) {
+                    pendingAutoPlayRef.current = false
+                    event.target.playVideo()
+                  }
+                } catch (e) {
+                  console.warn('YT ready handler warn:', e)
+                }
+              },
+              onStateChange: (event: any) => {
+                // YT.PlayerState: PLAYING = 1, PAUSED = 2, ENDED = 0, BUFFERING = 3
+                if (event.data === 1) {
+                  setIsPlaying(true)
+                  setAutoplayBlocked(false)
+                  startProgressTimer()
+                } else if (event.data === 2) {
+                  setIsPlaying(false)
+                  stopProgressTimer()
+                } else if (event.data === 0) {
+                  stopProgressTimer()
+                  if (isLooping && playerRef.current) {
+                    playerRef.current.seekTo(0, true)
+                    playerRef.current.playVideo()
+                  } else {
+                    setIsPlaying(false)
+                  }
+                }
+              },
+              onError: (err: any) => {
+                console.warn('YouTube Player error:', err)
+                setHasError(true)
+                setIsPlaying(false)
+                isApiLoadingRef.current = false
+                stopProgressTimer()
+              },
+            },
+          })
+        } catch (err) {
+          console.warn('Failed to init YT player:', err)
+          setHasError(true)
+          isApiLoadingRef.current = false
+        }
+      }
+
+      if (window.YT && window.YT.Player) {
+        createPlayer()
+      } else {
+        const prevCallback = window.onYouTubeIframeAPIReady
+        window.onYouTubeIframeAPIReady = () => {
+          if (typeof prevCallback === 'function') prevCallback()
+          createPlayer()
+        }
+
+        if (!document.getElementById('youtube-iframe-api')) {
+          const tag = document.createElement('script')
+          tag.id = 'youtube-iframe-api'
+          tag.src = 'https://www.youtube.com/iframe_api'
+          tag.async = true
+          const firstScriptTag = document.getElementsByTagName('script')[0]
+          firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag)
+        }
+      }
+    },
+    [isLooping, isMuted, volume, startProgressTimer, stopProgressTimer]
+  )
+
+  useEffect(() => {
+    return () => {
+      stopProgressTimer()
+      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+        try {
+          playerRef.current.destroy()
+        } catch {
+          // ignore
+        }
+        playerRef.current = null
+      }
+    }
+  }, [stopProgressTimer])
+
+  /**
+   * Play audio — initializes player on-demand if not already created
    */
   const play = useCallback(async (): Promise<void> => {
-    if (!playerRef.current || typeof playerRef.current.playVideo !== 'function') return
+    if (!playerRef.current) {
+      loadAudioPlayer(true)
+      return
+    }
+    if (typeof playerRef.current.playVideo !== 'function') return
     try {
       setAutoplayBlocked(false)
       playerRef.current.playVideo()
@@ -246,7 +279,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       console.warn('YT play failed:', err)
       setAutoplayBlocked(true)
     }
-  }, [])
+  }, [loadAudioPlayer])
 
   /**
    * Pause audio
@@ -340,16 +373,30 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   /**
    * Seek to timestamp in seconds
    */
-  const seek = useCallback((seconds: number): void => {
-    if (playerRef.current && typeof playerRef.current.seekTo === 'function' && isFinite(seconds)) {
-      try {
-        playerRef.current.seekTo(seconds, true)
-        setCurrentTime(seconds)
-      } catch {
-        // ignore
+  const seek = useCallback(
+    (seconds: number): void => {
+      if (!playerRef.current) {
+        loadAudioPlayer(false)
+        return
       }
-    }
-  }, [])
+      if (typeof playerRef.current.seekTo === 'function' && isFinite(seconds)) {
+        try {
+          playerRef.current.seekTo(seconds, true)
+          setCurrentTime(seconds)
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [loadAudioPlayer]
+  )
+
+  /**
+   * Preload audio player (e.g., on hover over player controls)
+   */
+  const preloadAudio = useCallback(() => {
+    loadAudioPlayer(false)
+  }, [loadAudioPlayer])
 
   const contextValue = useMemo<AudioContextType>(
     () => ({
@@ -369,6 +416,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       toggleMute,
       setLoop,
       seek,
+      preloadAudio,
     }),
     [
       isPlaying,
@@ -387,6 +435,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       toggleMute,
       setLoop,
       seek,
+      preloadAudio,
     ]
   )
 

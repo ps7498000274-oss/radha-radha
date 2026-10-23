@@ -219,6 +219,7 @@ export default function Profile() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            aria-label="Upload devotee profile avatar"
             className="hidden"
             onChange={handleImageUpload}
           />

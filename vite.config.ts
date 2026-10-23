@@ -9,4 +9,22 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React runtime
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          // Supabase client
+          'vendor-supabase': ['@supabase/supabase-js'],
+          // Charting library (heavy — only used on Analytics page)
+          'vendor-recharts': ['recharts'],
+          // Form handling
+          'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          // Date utilities
+          'vendor-date': ['date-fns'],
+        },
+      },
+    },
+  },
 })
