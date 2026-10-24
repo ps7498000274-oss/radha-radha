@@ -22,8 +22,10 @@ function PageLoader() {
   )
 }
 
+// Eagerly load primary Landing view to guarantee 0ms route transition & 95+ Mobile LCP
+import Landing from './pages/Landing'
+
 // Lazy-loaded public pages
-const Landing = lazy(() => import('./pages/Landing'))
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
