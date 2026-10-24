@@ -38,7 +38,7 @@ export default function Landing() {
 
           <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl text-center">
             {/* Sacred Tag */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-devotional-gold/40 bg-devotional-gold/10 px-4 py-1.5 text-xs md:text-sm font-semibold text-devotional-gold mb-8 animate-fade-in">
+            <div className="inline-flex items-center gap-2 rounded-full border border-devotional-gold/40 bg-devotional-gold/10 px-4 py-1.5 text-xs md:text-sm font-semibold text-devotional-gold mb-8">
               <LotusIcon className="h-4 w-4 text-devotional-gold" />
               <span>श्री राधा कृपा कटाक्ष • Personal Naam Jap Tracker</span>
             </div>
