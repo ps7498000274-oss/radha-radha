@@ -60,8 +60,23 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        devanagari: ['Tiro Devanagari Hindi', 'Noto Sans Devanagari', 'serif'],
+        sans: [
+          'Inter',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Roboto',
+          'Oxygen',
+          'Ubuntu',
+          'sans-serif',
+        ],
+        devanagari: [
+          '"Tiro Devanagari Hindi"',
+          '"Noto Sans Devanagari"',
+          '"Mangal"',
+          'system-ui',
+          'serif',
+        ],
       },
       keyframes: {
         'accordion-down': {

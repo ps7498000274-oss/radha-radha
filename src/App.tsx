@@ -1,7 +1,12 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import { ProtectedRoute } from './components/layout/ProtectedRoute'
-import { DashboardLayout } from './components/layout/DashboardLayout'
+// Lazy-loaded route guards and layouts
+const ProtectedRoute = lazy(() =>
+  import('./components/layout/ProtectedRoute').then((m) => ({ default: m.ProtectedRoute }))
+)
+const DashboardLayout = lazy(() =>
+  import('./components/layout/DashboardLayout').then((m) => ({ default: m.DashboardLayout }))
+)
 
 // Loading fallback — lightweight, no external deps
 function PageLoader() {

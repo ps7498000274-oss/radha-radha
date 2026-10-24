@@ -17,9 +17,12 @@ import {
 import { Button } from "@/components/ui/button"
 import { Header, LotusIcon } from "@/components/layout/Header"
 import { Footer } from "@/components/layout/Footer"
-import { AudioFullPlayer } from "@/components/audio/AudioFullPlayer"
 import { MILESTONES, APP_NAME, APP_TAGLINE, APP_SUBTITLE } from "@/lib/constants"
 import { formatIndianNumber } from "@/lib/formatters"
+
+const AudioFullPlayer = React.lazy(() =>
+  import("@/components/audio/AudioFullPlayer").then((m) => ({ default: m.AudioFullPlayer }))
+)
 
 export default function Landing() {
   return (
@@ -30,8 +33,8 @@ export default function Landing() {
         {/* HERO SECTION */}
         <section className="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-32 bg-gradient-to-b from-indigo-950/20 via-background to-background">
           {/* Spiritual Ambient Glows */}
-          <div className="pointer-events-none absolute left-1/2 top-10 -translate-x-1/2 h-[500px] w-[500px] md:h-[700px] md:w-[700px] rounded-full bg-gradient-to-br from-devotional-indigo/15 to-devotional-gold/15 blur-3xl opacity-70" />
-          <div className="pointer-events-none absolute right-10 top-40 h-72 w-72 rounded-full bg-devotional-gold/10 blur-3xl" />
+          <div className="pointer-events-none absolute left-1/2 top-10 -translate-x-1/2 h-[350px] w-[350px] md:h-[700px] md:w-[700px] rounded-full bg-gradient-to-br from-devotional-indigo/15 to-devotional-gold/15 blur-2xl md:blur-3xl opacity-70 transform-gpu" />
+          <div className="pointer-events-none absolute right-10 top-40 h-48 w-48 md:h-72 md:w-72 rounded-full bg-devotional-gold/10 blur-2xl md:blur-3xl transform-gpu" />
 
           <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl text-center">
             {/* Sacred Tag */}
@@ -105,7 +108,15 @@ export default function Landing() {
                 Listen to soothing “Radha Radha” naam dhun while you record your sadhana entries.
               </p>
             </div>
-            <AudioFullPlayer />
+            <React.Suspense
+              fallback={
+                <div className="h-48 rounded-2xl bg-card/60 border border-devotional-gold/20 flex items-center justify-center animate-pulse">
+                  <span className="text-xs text-muted-foreground">Loading devotional audio player...</span>
+                </div>
+              }
+            >
+              <AudioFullPlayer />
+            </React.Suspense>
           </div>
         </section>
 
