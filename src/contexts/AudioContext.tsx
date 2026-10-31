@@ -41,7 +41,8 @@ const STORAGE_KEYS = {
 } as const
 
 // The 11,000 Radha Naam Jaap video ID (from https://youtu.be/0LhTJgJyfM4)
-const DEFAULT_YT_VIDEO_ID = '0LhTJgJyfM4'
+// TODO: Replace with a publicly accessible YouTube video ID for the devotional track
+const DEFAULT_YT_VIDEO_ID = '85KZh_d_UDw'; // Fixed: user-provided YouTube link
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined)
 
